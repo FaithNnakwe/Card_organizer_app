@@ -103,14 +103,20 @@ class DatabaseHelper {
 
   // Insert Folder
   Future<int> insertFolder(String folderName) async {
+    await init(); 
     return await _db.insert(tableFolders, {columnFolderName: folderName});
   }
 
   // Insert Card into Folder
-  Future<int> addCardToFolder(int cardId, int folderId) async {
+  Future<int> addCardToFolder(int cardId, String newCardName, String newSuit) async {
+    await init(); 
     return await _db.update(
       tableCards,
-      {columnFolderIdFK: folderId},
+      {
+      columnCardName: newCardName,
+      columnSuit: newSuit,
+      columnImageUrl: getCardImageUrl(newCardName, newSuit), // Dynamically update the image URL
+      },
       where: '$columnCardId = ?',
       whereArgs: [cardId],
     );
@@ -118,11 +124,13 @@ class DatabaseHelper {
 
   // Get All Folders
   Future<List<Map<String, dynamic>>> getAllFolders() async {
+    await init(); 
     return await _db.query(tableFolders);
   }
 
   // Get Cards in a Folder
   Future<List<Map<String, dynamic>>> getCardsInFolder(int folderId) async {
+    await init(); 
     return await _db.query(
       tableCards,
       where: '$columnFolderIdFK = ?',
@@ -132,6 +140,7 @@ class DatabaseHelper {
 
   // Remove Card from Folder
   Future<int> removeCardFromFolder(int cardId) async {
+    await init(); 
     return await _db.update(
       tableCards,
       {columnFolderIdFK: null},
@@ -142,6 +151,7 @@ class DatabaseHelper {
 
   // Delete Folder 
   Future<int> deleteFolder(int folderId) async {
+    await init(); 
     return await _db.delete(
       tableFolders,
       where: '$columnFolderId = ?',
@@ -151,6 +161,7 @@ class DatabaseHelper {
 
   // Delete Card Permanently
   Future<int> deleteCard(int cardId) async {
+    await init(); 
     return await _db.delete(
       tableCards,
       where: '$columnCardId = ?',
@@ -159,6 +170,7 @@ class DatabaseHelper {
   }
 
   Future<int> insertCard(String cardName, String suit, int folderId) async {
+    await init(); 
   return await _db.insert(tableCards, {
     columnCardName: cardName,
     columnSuit: suit,
