@@ -63,15 +63,15 @@ class DatabaseHelper {
 
     // Get the folder IDs
     List<Map<String, dynamic>> folderResult = await db.query('Folders');
-    int heartsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Hearts')['id'];
-    int spadesFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Spades')['id'];
-    int diamondsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Diamonds')['id'];
-    int clubsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Clubs')['id'];
+    int heartsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'hearts')['id'];
+    int spadesFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'spades')['id'];
+    int diamondsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'diamonds')['id'];
+    int clubsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'clubs')['id'];
 
     // Cards data (using URLs for simplicity)
     List<Map<String, dynamic>> cardsData = [];
-    List<String> suits = ['Hearts', 'Spades', 'Diamonds', 'Clubs'];
-    List<String> ranks = ['Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King'];
+    List<String> suits = ['hearts', 'spades', 'diamonds', 'clubs'];
+    List<String> ranks = ['ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king'];
 
     for (var suit in suits) {
       for (var i = 0; i < ranks.length; i++) {
@@ -80,16 +80,16 @@ class DatabaseHelper {
         int folderId;
 
         switch (suit) {
-          case 'Hearts':
+          case 'hearts':
             folderId = heartsFolderId;
             break;
-          case 'Spades':
+          case 'spades':
             folderId = spadesFolderId;
             break;
-          case 'Diamonds':
+          case 'diamonds':
             folderId = diamondsFolderId;
             break;
-          case 'Clubs':
+          case 'clubs':
             folderId = clubsFolderId;
             break;
           default:
