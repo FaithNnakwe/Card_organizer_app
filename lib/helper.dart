@@ -1,172 +1,180 @@
 import 'dart:async';
-import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart';
 
+// Define a class to handle the database operations
 class DatabaseHelper {
-  static const _databaseName = "CardsDatabase.db";
-  static const _databaseVersion = 1;
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  factory DatabaseHelper() => _instance;
+  static Database? _database;
 
-  // Table Names
-  static const tableFolders = 'folders';
-  static const tableCards = 'cards';
+  // Private constructor for Singleton pattern
+  DatabaseHelper._internal();
 
-  // Folder Table Columns
-  static const columnFolderId = 'id';
-  static const columnFolderName = 'name';
-  static const columnTimestamp = 'timestamp';
+  // Getter for the database instance
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
 
-  // Card Table Columns
-  static const columnCardId = 'id';
-  static const columnCardName = 'name';
-  static const columnSuit = 'suit';
-  static const columnImageUrl = 'image_url';
-  static const columnFolderIdFK = 'folder_id';
-
-  late Database _db;
-
-  Future<void> init() async {
-    final documentsDirectory = await getApplicationDocumentsDirectory();
-    final path = join(documentsDirectory.path, _databaseName);
-    _db = await openDatabase(
+  // Initialize the database
+  Future<Database> _initDatabase() async {
+    String path = join(await getDatabasesPath(), 'cards_database.db');
+    return openDatabase(
       path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
+      version: 1,
+      onCreate: (db, version) async {
+        await _createTables(db);
+        await _insertSampleData(db);
+      },
     );
-
-    // Prepopulate database with standard deck of cards
-    await _populateCards();
   }
 
-  Future _onCreate(Database db, int version) async {
+  // Create tables for Folders and Cards
+  Future<void> _createTables(Database db) async {
     await db.execute('''
-      CREATE TABLE $tableFolders (
-        $columnFolderId INTEGER PRIMARY KEY AUTOINCREMENT,
-        $columnFolderName TEXT NOT NULL,
-        $columnTimestamp TEXT DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE Folders(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        folder_name TEXT NOT NULL,
+        timestamp INTEGER NOT NULL
       )
     ''');
 
     await db.execute('''
-      CREATE TABLE $tableCards (
-        $columnCardId INTEGER PRIMARY KEY AUTOINCREMENT,
-        $columnCardName TEXT NOT NULL,
-        $columnSuit TEXT NOT NULL,
-        $columnImageUrl TEXT NOT NULL,
-        $columnFolderIdFK INTEGER,
-        FOREIGN KEY ($columnFolderIdFK) REFERENCES $tableFolders($columnFolderId) ON DELETE CASCADE
+      CREATE TABLE Cards(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        suit TEXT NOT NULL,
+        image_url TEXT NOT NULL,
+        folder_id INTEGER,
+        FOREIGN KEY (folder_id) REFERENCES Folders(id)
       )
     ''');
   }
 
-  // Generate image URL dynamically
-  String getCardImageUrl(String rank, String suit) {
-    return 'https://deckofcardsapi.com/static/img/${rank}${suit}.png'; // This is an existing card Image API. Example typing in the link ' https://deckofcardsapi.com/static/img/AS.png' 
-    // generates an Ace of Spades Card. 
+  // Prepopulate Cards table with standard deck of cards
+  Future<void> _insertSampleData(Database db) async {
+    // Folders
+    await db.insert('Folders', {'folder_name': 'Hearts', 'timestamp': DateTime.now().millisecondsSinceEpoch});
+    await db.insert('Folders', {'folder_name': 'Spades', 'timestamp': DateTime.now().millisecondsSinceEpoch});
+    await db.insert('Folders', {'folder_name': 'Diamonds', 'timestamp': DateTime.now().millisecondsSinceEpoch});
+    await db.insert('Folders', {'folder_name': 'Clubs', 'timestamp': DateTime.now().millisecondsSinceEpoch});
 
-  }
+    // Get the folder IDs
+    List<Map<String, dynamic>> folderResult = await db.query('Folders');
+    int heartsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Hearts')['id'];
+    int spadesFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Spades')['id'];
+    int diamondsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Diamonds')['id'];
+    int clubsFolderId = folderResult.firstWhere((folder) => folder['folder_name'] == 'Clubs')['id'];
 
-  // Prepopulate Cards table
-  Future<void> _populateCards() async {
-    List<String> suits = ['H', 'D', 'S', 'C']; // Hearts, Diamonds, Spades, Clubs
-    List<String> ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    // Cards data (using URLs for simplicity)
+    List<Map<String, dynamic>> cardsData = [];
+    List<String> suits = ['Hearts', 'Spades', 'Diamonds', 'Clubs'];
+    List<String> ranks = ['Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King'];
 
     for (var suit in suits) {
-      for (var rank in ranks) {
-        await _db.insert(tableCards, {
-          columnCardName: '$rank of ${_getSuitName(suit)}',
-          columnSuit: suit,
-          columnImageUrl: getCardImageUrl(rank, suit),
-          columnFolderIdFK: null // No folder assigned initially
+      for (var i = 0; i < ranks.length; i++) {
+        String cardName = '${ranks[i]} of $suit';
+        String imageUrl = 'assets/images/${ranks[i]}_of_$suit.png';  // Assuming images are named like 'Ace_of_Hearts.png'
+        int folderId;
+
+        switch (suit) {
+          case 'Hearts':
+            folderId = heartsFolderId;
+            break;
+          case 'Spades':
+            folderId = spadesFolderId;
+            break;
+          case 'Diamonds':
+            folderId = diamondsFolderId;
+            break;
+          case 'Clubs':
+            folderId = clubsFolderId;
+            break;
+          default:
+            folderId = heartsFolderId; // Default to Hearts if not found
+        }
+
+        cardsData.add({
+          'name': cardName,
+          'suit': suit,
+          'image_url': imageUrl,
+          'folder_id': folderId,
         });
       }
     }
-  }
 
-  // Get full suit name
-  String _getSuitName(String suit) {
-    switch (suit) {
-      case 'H':
-        return 'Hearts';
-      case 'D':
-        return 'Diamonds';
-      case 'S':
-        return 'Spades';
-      case 'C':
-        return 'Clubs';
-      default:
-        return 'Unknown';
+    // Insert cards data
+    for (var card in cardsData) {
+      await db.insert('Cards', card);
     }
   }
 
-  // CRUD Operations
+  // Update Folder: Update the folder's name and timestamp
+Future<void> updateFolder(int id, String newFolderName) async {
+  final db = await database;
+  
+  await db.update(
+    'Folders',
+    {
+      'folder_name': newFolderName,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    },
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
 
-  // Insert Folder
-  Future<int> insertFolder(String folderName) async {
-    return await _db.insert(tableFolders, {columnFolderName: folderName});
-  }
+// Update Card: Update a card's name, suit, or image URL by card ID
+Future<void> updateCard(int id, {String? newName, String? newSuit, String? newImageUrl}) async {
+  final db = await database;
 
-  // Insert Card into Folder
-  Future<int> addCardToFolder(int cardId, int folderId) async {
-    return await _db.update(
-      tableCards,
-      {columnFolderIdFK: folderId},
-      where: '$columnCardId = ?',
-      whereArgs: [cardId],
-    );
-  }
+  Map<String, dynamic> updatedCard = {};
+  if (newName != null) updatedCard['name'] = newName;
+  if (newSuit != null) updatedCard['suit'] = newSuit;
+  if (newImageUrl != null) updatedCard['image_url'] = newImageUrl;
 
-  // Get All Folders
-  Future<List<Map<String, dynamic>>> getAllFolders() async {
-    return await _db.query(tableFolders);
-  }
+  await db.update(
+    'Cards',
+    updatedCard,
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
 
-  // Get Cards in a Folder
-  Future<List<Map<String, dynamic>>> getCardsInFolder(int folderId) async {
-    return await _db.query(
-      tableCards,
-      where: '$columnFolderIdFK = ?',
-      whereArgs: [folderId],
-    );
-  }
+// Delete Folder: Delete a folder by its ID
+Future<void> deleteFolder(int id) async {
+  final db = await database;
 
-  // Remove Card from Folder
-  Future<int> removeCardFromFolder(int cardId) async {
-    return await _db.update(
-      tableCards,
-      {columnFolderIdFK: null},
-      where: '$columnCardId = ?',
-      whereArgs: [cardId],
-    );
-  }
+  // First, delete all cards in the folder to avoid foreign key constraint errors
+  await db.delete(
+    'Cards',
+    where: 'folder_id = ?',
+    whereArgs: [id],
+  );
 
-  // Delete Folder 
-  Future<int> deleteFolder(int folderId) async {
-    return await _db.delete(
-      tableFolders,
-      where: '$columnFolderId = ?',
-      whereArgs: [folderId],
-    );
-  }
+  // Then delete the folder itself
+  await db.delete(
+    'Folders',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
 
-  // Delete Card Permanently
-  Future<int> deleteCard(int cardId) async {
-    return await _db.delete(
-      tableCards,
-      where: '$columnCardId = ?',
-      whereArgs: [cardId],
-    );
-  }
+// Delete Card: Delete a card by its ID
+Future<void> deleteCard(int id) async {
+  final db = await database;
 
-  Future<int> insertCard(String cardName, String suit, int folderId) async {
-  return await _db.insert(tableCards, {
-    columnCardName: cardName,
-    columnSuit: suit,
-    columnImageUrl: getCardImageUrl(cardName, suit),
-    columnFolderIdFK: folderId,
-  });
+  // Delete the card from the Cards table
+  await db.delete(
+    'Cards',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
 }
 
 }
+ 
 
-
+ 
