@@ -21,6 +21,7 @@ class DatabaseHelper {
 
   // Initialize the database
   Future<Database> _initDatabase() async {
+    await deleteDatabase(join(await getDatabasesPath(), 'cards_database.db'));
     String path = join(await getDatabasesPath(), 'cards_database.db');
     return openDatabase(
       path,
@@ -33,17 +34,21 @@ class DatabaseHelper {
   }
 
   // Create tables for Folders and Cards
-  Future<void> _createTables(Database db) async {
+Future<void> _createTables(Database db) async {
+  try {
+    print("Executing Folder Table Creation...");
     await db.execute('''
-      CREATE TABLE Folders(
+      CREATE TABLE IF NOT EXISTS Folders(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         folder_name TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       )
     ''');
+    print("Folder Table Created!");
 
+    print("Executing Cards Table Creation...");
     await db.execute('''
-      CREATE TABLE Cards(
+      CREATE TABLE IF NOT EXISTS Cards(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         suit TEXT NOT NULL,
@@ -52,7 +57,13 @@ class DatabaseHelper {
         FOREIGN KEY (folder_id) REFERENCES Folders(id)
       )
     ''');
+    print("Cards Table Created!");
+  } catch (e) {
+    print("Table Creation Error: $e");
+    rethrow;
   }
+}
+
 
   // Prepopulate Cards table with standard deck of cards
   Future<void> _insertSampleData(Database db) async {
@@ -116,7 +127,7 @@ class DatabaseHelper {
       for (var i = 0; i < ranks.length; i++) {
         String cardName = '${ranks[i]} of $suit';
         String imageUrl =
-            'assets/images/${ranks[i]}_of_$suit.png'; // Assuming images are named like 'Ace_of_Hearts.png'
+            'assets/${ranks[i]}_of_$suit.png'; // Assuming images are named like 'Ace_of_Hearts.png'
         int folderId;
 
         switch (suit) {
